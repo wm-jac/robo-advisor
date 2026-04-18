@@ -20,6 +20,7 @@ from src.data_loader import (
 )
 from src.optimizer import find_optimal_portfolio, sensitivity_analysis
 from src.portfolio import compute_efficient_frontier, compute_gmvp, portfolio_stats
+from src.risk_free_rate import fetch_latest_one_year_tbill_rate
 from src.risk_assessment import QUESTIONS, calculate_utility, describe_profile, get_score_range, score_to_A
 from src.translations import PROFILE_KEY_MAP, TRANSLATIONS
 
@@ -56,6 +57,25 @@ def translate_profile(profile: dict) -> dict:
         "label": t(f"profile_{key}_label"),
         "description": t(f"profile_{key}_desc"),
     }
+
+
+def _answer_to_index(answer, q_en: dict, q_tr: dict) -> int | None:
+    if answer is None:
+        return None
+    if isinstance(answer, (int, np.integer)):
+        answer_idx = int(answer)
+        return answer_idx if 0 <= answer_idx < len(q_en["scores"]) else None
+    if isinstance(answer, str):
+        if answer in q_tr["options"]:
+            return q_tr["options"].index(answer)
+        if answer in q_en["options"]:
+            return q_en["options"].index(answer)
+        question_idx = q_en.get("id", 0) - 1
+        for translation in TRANSLATIONS.values():
+            questions = translation.get("questions", [])
+            if 0 <= question_idx < len(questions) and answer in questions[question_idx]["options"]:
+                return questions[question_idx]["options"].index(answer)
+    return None
 
 
 # Internal freq values that the backend always expects
@@ -102,8 +122,6 @@ with st.sidebar:
     freq_idx = freq_options_display.index(freq_display)
     st.session_state["freq_idx"] = freq_idx
     freq = _FREQ_EN[freq_idx]  # always pass English key to backend
-
-    allow_short = st.toggle(t("allow_short"), value=False)
 
     st.divider()
     st.caption(t("semester"))
@@ -167,6 +185,40 @@ def get_data():
         return None, None, None, None
 
 
+@st.cache_data(show_spinner=False, ttl=6 * 60 * 60)
+def _load_risk_free_rate():
+    risk_free = fetch_latest_one_year_tbill_rate()
+    return {
+        "rate": risk_free.rate,
+        "yield_percent": risk_free.yield_percent,
+        "as_of": risk_free.as_of.isoformat(),
+        "issue_code": risk_free.issue_code,
+        "source_url": risk_free.source_url,
+    }
+
+
+def get_risk_free_rate():
+    try:
+        risk_free = _load_risk_free_rate()
+        return risk_free["rate"], risk_free, None
+    except Exception as e:
+        return 0.0, None, str(e)
+
+
+def show_risk_free_rate_note(risk_free, error: str | None):
+    if risk_free is not None:
+        st.caption(
+            t("risk_free_source").format(
+                rate=risk_free["yield_percent"],
+                issue_code=risk_free["issue_code"],
+                as_of=risk_free["as_of"],
+                source_url=risk_free["source_url"],
+            )
+        )
+    else:
+        st.warning(t("risk_free_error").format(e=error))
+
+
 # ──────────────────────────────────────────────────────────────
 # Tabs
 # ──────────────────────────────────────────────────────────────
@@ -220,13 +272,15 @@ with tab1:
 
     # Summary statistics table
     st.subheader(t("tab1_stats"))
+    risk_free_rate, risk_free, risk_free_error = get_risk_free_rate()
+    show_risk_free_rate_note(risk_free, risk_free_error)
     stats = individual_fund_stats(mu, Sigma)
-    stats["Sharpe Ratio"] = stats["Return"] / stats["Volatility"]
+    stats["Sharpe Ratio"] = (stats["Return"] - risk_free_rate) / stats["Volatility"]
     display = stats.copy()
     display["Return"] = (display["Return"] * 100).round(2).astype(str) + "%"
     display["Volatility"] = (display["Volatility"] * 100).round(2).astype(str) + "%"
     display["Sharpe Ratio"] = display["Sharpe Ratio"].round(3)
-    display.index.name = "Product"
+    display.index.name = t("tab2_fund_col")
     display = display.rename(columns={
         "Return": t("tab1_col_return"),
         "Volatility": t("tab1_col_vol"),
@@ -256,8 +310,8 @@ with tab1:
     # Variance-Covariance matrix
     with st.expander(t("tab1_cov")):
         Sigma_display = Sigma.round(6)
-        Sigma_display.index.name = "Product"
-        Sigma_display.columns.name = "Product"
+        Sigma_display.index.name = t("tab2_fund_col")
+        Sigma_display.columns.name = t("tab2_fund_col")
         st.dataframe(Sigma_display, use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════
@@ -406,8 +460,11 @@ with tab3:
 
         st.subheader(t("tab3_q_label").format(n=q_idx + 1, text=q_tr["text"]))
 
-        # Default selection: use stored index (None → 0)
-        stored_idx = st.session_state["answers"][q_idx]
+        # Default selection: accept both current index storage and legacy text answers.
+        stored_answer = st.session_state["answers"][q_idx]
+        stored_idx = _answer_to_index(stored_answer, q_en, q_tr)
+        if stored_answer is not None and stored_idx is not None:
+            st.session_state["answers"][q_idx] = stored_idx
         default_idx = stored_idx if stored_idx is not None else 0
 
         selected_text = st.radio(
@@ -439,8 +496,9 @@ with tab3:
         # Compute score from stored indices
         total_score = 0
         for i, q in enumerate(QUESTIONS):
-            ans_idx = st.session_state["answers"][i]
+            ans_idx = _answer_to_index(st.session_state["answers"][i], q, t("questions")[i])
             if ans_idx is not None:
+                st.session_state["answers"][i] = ans_idx
                 total_score += q["scores"][ans_idx]
 
         A = score_to_A(total_score)
@@ -479,7 +537,7 @@ with tab3:
         with st.expander(t("tab3_review")):
             for i, q_en in enumerate(QUESTIONS):
                 q_tr = t("questions")[i]
-                ans_idx = st.session_state["answers"][i]
+                ans_idx = _answer_to_index(st.session_state["answers"][i], q_en, q_tr)
                 ans_text = q_tr["options"][ans_idx] if ans_idx is not None else "—"
                 score = q_en["scores"][ans_idx] if ans_idx is not None else "?"
                 st.markdown(f"**Q{i+1}. {q_tr['text']}**  \n→ {ans_text} *(score: {score})*")
@@ -524,13 +582,15 @@ with tab4:
         help=t("tab4_adjust_help"),
     )
 
-    opt_short_toggle = st.toggle(t("tab4_short_toggle"), value=allow_short)
+    opt_short_toggle = st.toggle(t("tab4_short_toggle"), value=False)
+
+    risk_free_rate4, risk_free4, risk_free_error4 = get_risk_free_rate()
 
     @st.cache_data(show_spinner=False)
-    def _get_optimal(mu_bytes, Sigma_bytes, n, A, allow_short, names_key):
+    def _get_optimal(mu_bytes, Sigma_bytes, n, A, allow_short, names_key, rf):
         mu_a = np.frombuffer(mu_bytes).reshape(n)
         Sig_a = np.frombuffer(Sigma_bytes).reshape(n, n)
-        return find_optimal_portfolio(mu_a, Sig_a, A, allow_short, list(names_key))
+        return find_optimal_portfolio(mu_a, Sig_a, A, allow_short, list(names_key), rf)
 
     n4 = len(mu_arr4)
     with st.spinner(t("tab4_optimising")):
@@ -541,6 +601,7 @@ with tab4:
             round(A_override, 2),
             opt_short_toggle,
             tuple(fund_names4),
+            round(risk_free_rate4, 8),
         )
 
     if not optimal["success"]:
@@ -553,13 +614,13 @@ with tab4:
     m2.metric(t("tab4_volatility"), f"{optimal['volatility']*100:.2f}%")
     m3.metric(t("tab4_utility"), f"{optimal['utility']:.4f}")
     m4_col.metric(t("tab4_sharpe"), f"{optimal['sharpe']:.3f}")
+    show_risk_free_rate_note(risk_free4, risk_free_error4)
 
     st.divider()
     col_chart, col_table = st.columns([1.15, 1])
 
     alloc = optimal["allocation"]
 
-    # ── Bar chart (handles long/short weights properly) ──
     with col_chart:
         st.subheader(t("tab4_alloc_title"))
         bar_alloc = alloc.copy()
@@ -639,12 +700,39 @@ with tab4:
     st.subheader(t("tab4_frontier_title"))
 
     @st.cache_data(show_spinner=False)
-    def _get_frontier4(mu_bytes, Sigma_bytes, n, allow_short):
+    def _get_frontier4(
+        mu_bytes,
+        Sigma_bytes,
+        n,
+        allow_short,
+        target_return_min,
+        target_return_max,
+    ):
         mu_a = np.frombuffer(mu_bytes).reshape(n)
         Sig_a = np.frombuffer(Sigma_bytes).reshape(n, n)
-        return compute_efficient_frontier(mu_a, Sig_a, allow_short)
+        return compute_efficient_frontier(
+            mu_a,
+            Sig_a,
+            allow_short,
+            target_return_min=target_return_min,
+            target_return_max=target_return_max,
+        )
 
-    frontier4 = _get_frontier4(mu_arr4.tobytes(), Sigma_arr4.tobytes(), n4, opt_short_toggle)
+    if opt_short_toggle:
+        frontier_base_min = float(np.min(mu_arr4))
+    else:
+        frontier_base_min = float(compute_gmvp(mu_arr4, Sigma_arr4, allow_short=False)["return"])
+    frontier_return_min = min(frontier_base_min, float(optimal["return"]))
+    frontier_return_max = max(float(np.max(mu_arr4)), float(optimal["return"]))
+    frontier_return_padding = max(frontier_return_max - frontier_return_min, 0.01) * 0.05
+    frontier4 = _get_frontier4(
+        mu_arr4.tobytes(),
+        Sigma_arr4.tobytes(),
+        n4,
+        opt_short_toggle,
+        frontier_return_min - frontier_return_padding,
+        frontier_return_max + frontier_return_padding,
+    )
     fund_stats4 = individual_fund_stats(mu4, Sigma4)
 
     fig_overlay = go.Figure()

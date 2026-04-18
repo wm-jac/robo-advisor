@@ -26,6 +26,14 @@ TRANSLATIONS: dict[str, dict] = {
         "freq_options": ["Daily", "Weekly", "Monthly"],
         "allow_short": "Allow short sales",
         "semester": "AY 2025/26 Semester 2",
+        "risk_free_source": (
+            "Risk-free rate: {rate:.2f}% p.a. from [MAS 1-Year T-bill]({source_url}) "
+            "({issue_code}, as of {as_of})."
+        ),
+        "risk_free_error": (
+            "Could not fetch the MAS 1-Year T-bill risk-free rate ({e}). "
+            "Sharpe ratios use 0.00%."
+        ),
 
         # Tabs
         "tab1": "📊 Data & Funds",
@@ -72,7 +80,7 @@ TRANSLATIONS: dict[str, dict] = {
         "tab2_no_short": "Without Short Sales (Long-Only)",
         "tab2_gmvp_short": "GMVP Details — With Short Sales",
         "tab2_gmvp_long": "GMVP Details — Without Short Sales",
-        "tab2_fund_col": "Fund",
+        "tab2_fund_col": "Product",
         "tab2_weight_col": "Weight (%)",
         "tab2_return_metric": "Return",
         "tab2_vol_metric": "Volatility",
@@ -260,6 +268,14 @@ TRANSLATIONS: dict[str, dict] = {
         "freq_options": ["日频", "周频", "月频"],
         "allow_short": "允许卖空",
         "semester": "2025/26学年 第二学期",
+        "risk_free_source": (
+            "无风险利率：[MAS 1年期国库券]({source_url}) {rate:.2f}% p.a."
+            "（{issue_code}，截至 {as_of}）。"
+        ),
+        "risk_free_error": (
+            "无法获取MAS 1年期国库券无风险利率（{e}）。"
+            "夏普比率将使用 0.00%。"
+        ),
 
         # Tabs
         "tab1": "📊 数据与基金",
@@ -306,7 +322,7 @@ TRANSLATIONS: dict[str, dict] = {
         "tab2_no_short": "不允许卖空（仅多头）",
         "tab2_gmvp_short": "全局最小方差组合详情 — 允许卖空",
         "tab2_gmvp_long": "全局最小方差组合详情 — 不允许卖空",
-        "tab2_fund_col": "基金",
+        "tab2_fund_col": "产品",
         "tab2_weight_col": "权重 (%)",
         "tab2_return_metric": "收益率",
         "tab2_vol_metric": "波动率",

@@ -17,6 +17,7 @@ def find_optimal_portfolio(
     A: float,
     allow_short: bool,
     fund_names: list[str] = None,
+    rf: float = 0.0,
 ) -> dict:
     """
     Maximise U = w^T mu - (A/2) * w^T Sigma w  subject to sum(w) = 1.
@@ -27,7 +28,7 @@ def find_optimal_portfolio(
         return     : float (annualised)
         volatility : float (annualised)
         utility    : float
-        sharpe     : float
+        sharpe     : float, computed using excess return over rf
         allocation : pd.DataFrame with Fund / Weight columns
     """
     n = len(mu)
@@ -63,7 +64,7 @@ def find_optimal_portfolio(
     var = float(w @ Sigma @ w)
     vol = np.sqrt(var)
     utility = calculate_utility(ret, var, A)
-    sharpe = ret / vol if vol > 1e-10 else 0.0
+    sharpe = (ret - rf) / vol if vol > 1e-10 else 0.0
 
     allocation = _format_allocation(w, fund_names or [f"Fund {i+1}" for i in range(n)])
 
