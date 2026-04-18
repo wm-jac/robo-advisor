@@ -8,6 +8,16 @@ export interface FundStat {
   sharpe: number;
 }
 
+export interface RiskFreeRateInfo {
+  rate: number;
+  yield_percent: number;
+  as_of: string | null;
+  issue_code: string | null;
+  source_url: string;
+  fallback: boolean;
+  error: string | null;
+}
+
 export interface PriceSeries {
   dates: string[];
   values: number[];
@@ -49,6 +59,7 @@ interface AppState {
   stats: FundStat[];
   corr: CorrData | null;
   dateRange: DateRange | null;
+  riskFreeRate: RiskFreeRateInfo | null;
   isDefault: boolean;
   freq: string;
 
@@ -67,6 +78,7 @@ interface AppState {
     stats: FundStat[];
     corr: CorrData;
     date_range: DateRange;
+    risk_free_rate?: RiskFreeRateInfo;
     is_default: boolean;
   }) => void;
   setLang: (lang: Lang) => void;
@@ -88,6 +100,7 @@ export const useAppStore = create<AppState>((set) => ({
   stats: [],
   corr: null,
   dateRange: null,
+  riskFreeRate: null,
   isDefault: true,
   freq: "Daily",
 
@@ -105,6 +118,7 @@ export const useAppStore = create<AppState>((set) => ({
       stats: data.stats,
       corr: data.corr,
       dateRange: data.date_range,
+      riskFreeRate: data.risk_free_rate ?? null,
       isDefault: data.is_default,
       portfolioReady: false,
     }),

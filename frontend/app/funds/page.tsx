@@ -6,6 +6,7 @@ import { Upload, RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { analyzeFunds, analyzeDefaults } from "@/lib/api";
 import { t } from "@/lib/i18n";
+import { formatRiskFreeRate } from "@/lib/riskFree";
 import Chart, { COLOURS } from "@/components/Chart";
 import MetricCard from "@/components/MetricCard";
 
@@ -18,6 +19,7 @@ export default function FundsPage() {
     stats,
     corr,
     dateRange,
+    riskFreeRate,
     isDefault,
     freq,
     lang,
@@ -32,6 +34,7 @@ export default function FundsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const hasData = funds.length > 0;
+  const riskFreeText = formatRiskFreeRate(lang, riskFreeRate);
 
   const load = useCallback(
     async (files: File[], selectedFreq: string) => {
@@ -248,6 +251,9 @@ export default function FundsPage() {
           {/* Stats metric cards */}
           <div>
             <p className="section-title">{t(lang, "performance_summary")}</p>
+            {riskFreeText && (
+              <p className="text-muted text-xs mb-3">{riskFreeText}</p>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
               {stats.map((s, i) => (
                 <MetricCard

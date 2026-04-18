@@ -113,6 +113,7 @@ http://localhost:3000
 - The frontend expects the backend on port `8000`.
 - If `data/` already contains the fund CSVs, the app can load them automatically.
 - If no local data is present, you can still upload CSVs through the frontend.
+- Sharpe ratios use excess return over the MAS 1-year T-bill yield fetched by the backend. The API returns the applied `risk_free_rate` metadata and falls back to `0.00%` only if the MAS fetch is unavailable.
 - Generated CSV files in `data/` are ignored by Git.
 
 ## Quick restart

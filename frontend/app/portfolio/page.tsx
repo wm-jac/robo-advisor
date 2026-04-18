@@ -4,9 +4,10 @@ import { useState, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Briefcase, AlertCircle } from "lucide-react";
 import Link from "next/link";
-import { useAppStore } from "@/lib/store";
+import { useAppStore, type RiskFreeRateInfo } from "@/lib/store";
 import { computeFrontier, computeOptimal } from "@/lib/api";
 import { t, translateProfile } from "@/lib/i18n";
+import { formatRiskFreeRateShort } from "@/lib/riskFree";
 import Chart, { COLOURS } from "@/components/Chart";
 import MetricCard from "@/components/MetricCard";
 
@@ -24,6 +25,7 @@ interface OptimalResult {
   success: boolean;
   allocation: AllocationRow[];
   sensitivity: Record<string, number>[];
+  risk_free_rate?: RiskFreeRateInfo;
 }
 
 interface FrontierResult {
@@ -31,7 +33,17 @@ interface FrontierResult {
 }
 
 export default function PortfolioPage() {
-  const { mu, sigma, funds, riskA, riskProfile, stats, lang, setPortfolioReady } = useAppStore();
+  const {
+    mu,
+    sigma,
+    funds,
+    riskA,
+    riskProfile,
+    stats,
+    riskFreeRate,
+    lang,
+    setPortfolioReady,
+  } = useAppStore();
 
   const [A, setA] = useState<number>(riskA ?? 4.0);
   const [allowShort, setAllowShort] = useState(false);
@@ -42,6 +54,8 @@ export default function PortfolioPage() {
 
   const hasData = mu.length > 0;
   const hasProfile = riskA !== null;
+  const appliedRiskFreeRate = result?.risk_free_rate ?? riskFreeRate;
+  const riskFreeText = formatRiskFreeRateShort(lang, appliedRiskFreeRate);
 
   // Sync slider with profile A when it changes
   useEffect(() => {
@@ -303,6 +317,7 @@ export default function PortfolioPage() {
                   <MetricCard
                     label={t(lang, "sharpe_ratio")}
                     value={result.sharpe.toFixed(3)}
+                    sub={riskFreeText}
                     accent={result.sharpe >= 1 ? "emerald" : result.sharpe >= 0.5 ? "amber" : "red"}
                     delay={0.15}
                   />

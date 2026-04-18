@@ -20,6 +20,8 @@ python scripts/download_fsmone_funds.py --identifier "Fidelity America A-SGD (he
 
 Generated CSVs are ignored by Git via `data/*.csv`.
 
+Sharpe ratios are not derived from a CSV in this folder. The backend fetches the MAS 1-year T-bill yield at runtime and uses it as the risk-free rate, falling back to `0.00%` only if that fetch is unavailable.
+
 ## How to download from FSMOne
 
 1. Go to https://secure.fundsupermart.com/fsmone/tools/fund-selector

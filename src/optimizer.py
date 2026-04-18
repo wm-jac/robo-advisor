@@ -96,6 +96,7 @@ def sensitivity_analysis(
     fund_names: list[str] = None,
     n_steps: int = 9,
     delta: float = 3.0,
+    rf: float = 0.0,
 ) -> pd.DataFrame:
     """
     Compute optimal portfolios across a range of A values centred on A_center.
@@ -105,7 +106,7 @@ def sensitivity_analysis(
     A_values = np.linspace(max(1.0, A_center - delta), min(8.0, A_center + delta), n_steps)
     rows = []
     for A in A_values:
-        result = find_optimal_portfolio(mu, Sigma, A, allow_short, names)
+        result = find_optimal_portfolio(mu, Sigma, A, allow_short, names, rf=rf)
         row = {"A": round(A, 2)}
         for name, w in zip(names, result["weights"]):
             row[name] = round(w * 100, 1)

@@ -4,8 +4,8 @@ Run with: uvicorn backend.main:app --reload --port 8000
 """
 
 import io
-import os
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -33,8 +33,16 @@ from src.risk_assessment import (
     get_score_range,
     score_to_A,
 )
+from src.risk_free_rate import (
+    MAS_ONE_YEAR_TBILL_URL,
+    fetch_latest_one_year_tbill_rate,
+)
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+_RISK_FREE_CACHE_TTL = timedelta(hours=6)
+_RISK_FREE_FALLBACK_TTL = timedelta(minutes=5)
+_risk_free_cache: dict[str, object] | None = None
+_risk_free_cache_at: datetime | None = None
 
 app = FastAPI(title="Robo-Advisor API", version="1.0.0")
 
@@ -66,6 +74,47 @@ def _nan_safe(v):
         return None
     f = float(v)
     return None if (f != f) else f  # NaN check
+
+
+def _risk_free_rate_payload() -> dict[str, object]:
+    """Return the cached MAS 1-year T-bill rate, falling back to 0 if unavailable."""
+    global _risk_free_cache, _risk_free_cache_at
+
+    now = datetime.now(timezone.utc)
+    if _risk_free_cache is not None and _risk_free_cache_at is not None:
+        cache_ttl = (
+            _RISK_FREE_FALLBACK_TTL
+            if _risk_free_cache.get("fallback")
+            else _RISK_FREE_CACHE_TTL
+        )
+        if now - _risk_free_cache_at < cache_ttl:
+            return _risk_free_cache
+
+    try:
+        risk_free = fetch_latest_one_year_tbill_rate(timeout=5)
+        payload: dict[str, object] = {
+            "rate": _nan_safe(risk_free.rate),
+            "yield_percent": _nan_safe(risk_free.yield_percent),
+            "as_of": risk_free.as_of.isoformat(),
+            "issue_code": risk_free.issue_code,
+            "source_url": risk_free.source_url,
+            "fallback": False,
+            "error": None,
+        }
+    except Exception as e:
+        payload = {
+            "rate": 0.0,
+            "yield_percent": 0.0,
+            "as_of": None,
+            "issue_code": None,
+            "source_url": MAS_ONE_YEAR_TBILL_URL,
+            "fallback": True,
+            "error": str(e),
+        }
+
+    _risk_free_cache = payload
+    _risk_free_cache_at = now
+    return payload
 
 
 # ── models ────────────────────────────────────────────────────────────────────
@@ -119,6 +168,8 @@ async def analyze_funds(
         stats_df = individual_fund_stats(mu, Sigma)
         norm = normalise_prices(prices)
         corr = returns.corr()
+        risk_free_rate = _risk_free_rate_payload()
+        rf = float(risk_free_rate["rate"])
 
         price_data = {
             col: {
@@ -132,11 +183,16 @@ async def analyze_funds(
         for fund in stats_df.index:
             ret = _nan_safe(stats_df.loc[fund, "Return"])
             vol = _nan_safe(stats_df.loc[fund, "Volatility"])
+            sharpe = (
+                _nan_safe((ret - rf) / vol)
+                if (ret is not None and vol and vol > 0)
+                else None
+            )
             stats_out.append({
                 "fund": fund,
                 "return": ret,
                 "volatility": vol,
-                "sharpe": _nan_safe(ret / vol) if (vol and vol > 0) else None,
+                "sharpe": sharpe,
             })
 
         return {
@@ -155,6 +211,7 @@ async def analyze_funds(
                 "observations": len(prices),
             },
             "is_default": is_default,
+            "risk_free_rate": risk_free_rate,
         }
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -204,9 +261,18 @@ def optimal(body: OptimalRequest):
         mu = np.array(body.mu)
         Sigma = np.array(body.sigma)
         names = body.fund_names or [f"Fund {i+1}" for i in range(len(mu))]
+        risk_free_rate = _risk_free_rate_payload()
+        rf = float(risk_free_rate["rate"])
 
-        result = find_optimal_portfolio(mu, Sigma, body.A, body.allow_short, names)
-        sens_df = sensitivity_analysis(mu, Sigma, body.A, body.allow_short, names)
+        result = find_optimal_portfolio(
+            mu,
+            Sigma,
+            body.A,
+            body.allow_short,
+            names,
+            rf=rf,
+        )
+        sens_df = sensitivity_analysis(mu, Sigma, body.A, body.allow_short, names, rf=rf)
 
         allocation = [
             {
@@ -227,6 +293,7 @@ def optimal(body: OptimalRequest):
             "success": result["success"],
             "allocation": allocation,
             "sensitivity": sensitivity,
+            "risk_free_rate": risk_free_rate,
         }
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
