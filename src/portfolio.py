@@ -62,6 +62,8 @@ def compute_efficient_frontier(
     Sigma: np.ndarray,
     allow_short: bool,
     n_points: int = 200,
+    target_return_min: float | None = None,
+    target_return_max: float | None = None,
 ) -> pd.DataFrame:
     """
     Trace the efficient frontier by sweeping target returns and minimising variance.
@@ -81,6 +83,11 @@ def compute_efficient_frontier(
     if allow_short:
         # Include the lower (inefficient) branch for the full parabola
         r_min = float(np.min(mu))
+
+    if target_return_min is not None:
+        r_min = min(r_min, float(target_return_min))
+    if target_return_max is not None:
+        r_max = max(r_max, float(target_return_max))
 
     if r_max - r_min < 1e-8:
         # All funds have identical returns — degenerate case

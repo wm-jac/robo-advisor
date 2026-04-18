@@ -60,8 +60,6 @@ with st.sidebar:
         index=0,
     )
 
-    allow_short = st.toggle("Allow short sales", value=False)
-
     st.divider()
     st.caption("AY 2025/26 Semester 2")
 
@@ -85,19 +83,38 @@ def _default_data_files() -> list[Path]:
     return sorted(path for path in DATA_DIR.glob("*.csv") if path.is_file())
 
 
+def _humanise_fund_label(name: str) -> str:
+    label = Path(str(name)).stem
+    parts = label.split("_", 1)
+    if len(parts) == 2 and any(char.isdigit() for char in parts[0]):
+        label = parts[1]
+    label = label.replace("_", " ").replace("-", " ")
+    return " ".join(label.split())
+
+
+def _humanise_fund_labels(names: list[str]) -> list[str]:
+    labels = [_humanise_fund_label(name) for name in names]
+    counts = {}
+    unique_labels = []
+    for label in labels:
+        counts[label] = counts.get(label, 0) + 1
+        unique_labels.append(label if counts[label] == 1 else f"{label} ({counts[label]})")
+    return unique_labels
+
+
 def get_data():
     if uploaded_files:
         file_bytes = [f.read() for f in uploaded_files]
         for f in uploaded_files:
             f.seek(0)
-        file_names = [Path(f.name).stem for f in uploaded_files]
+        file_names = _humanise_fund_labels([Path(f.name).stem for f in uploaded_files])
         source = "uploaded data"
     else:
         data_files = _default_data_files()
         if not data_files:
             return None, None, None, None
         file_bytes = [path.read_bytes() for path in data_files]
-        file_names = [path.stem for path in data_files]
+        file_names = _humanise_fund_labels([path.stem for path in data_files])
         source = f"default CSVs in {DATA_DIR}"
 
     try:
@@ -182,6 +199,7 @@ with tab1:
     display["Return"] = (display["Return"] * 100).round(2).astype(str) + "%"
     display["Volatility"] = (display["Volatility"] * 100).round(2).astype(str) + "%"
     display["Sharpe Ratio"] = display["Sharpe Ratio"].round(3)
+    display.index.name = "Product"
     st.dataframe(display, use_container_width=True)
 
     # Correlation heatmap
@@ -205,7 +223,10 @@ with tab1:
 
     # Variance-Covariance matrix
     with st.expander("Variance-Covariance Matrix"):
-        st.dataframe(Sigma.round(6), use_container_width=True)
+        Sigma_display = Sigma.round(6)
+        Sigma_display.index.name = "Product"
+        Sigma_display.columns.name = "Product"
+        st.dataframe(Sigma_display, use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════
 # TAB 2 — Efficient Frontier
@@ -293,7 +314,7 @@ with tab2:
 
         with st.expander("GMVP Details — With Short Sales"):
             gmvp_df = pd.DataFrame({
-                "Fund": fund_names,
+                "Product": fund_names,
                 "Weight (%)": (gmvp_short["weights"] * 100).round(2),
             }).sort_values("Weight (%)", ascending=False)
             st.dataframe(gmvp_df, use_container_width=True)
@@ -311,7 +332,7 @@ with tab2:
 
         with st.expander("GMVP Details — Without Short Sales"):
             gmvp_df2 = pd.DataFrame({
-                "Fund": fund_names,
+                "Product": fund_names,
                 "Weight (%)": (gmvp_long["weights"] * 100).round(2),
             }).sort_values("Weight (%)", ascending=False)
             gmvp_df2 = gmvp_df2[gmvp_df2["Weight (%)"].abs() > 0.1]
@@ -486,7 +507,7 @@ with tab4:
         help="A=1 is very aggressive; A=8 is very conservative. The default is from your questionnaire.",
     )
 
-    opt_short_toggle = st.toggle("Allow short sales in optimal portfolio", value=allow_short)
+    opt_short_toggle = st.toggle("Allow short sales in optimal portfolio", value=False)
 
     @st.cache_data(show_spinner="Optimising portfolio…")
     def _get_optimal(mu_bytes, Sigma_bytes, n, A, allow_short, names_key):
@@ -517,26 +538,67 @@ with tab4:
     m4_col.metric("Sharpe Ratio", f"{optimal['sharpe']:.3f}")
 
     st.divider()
-    col_pie, col_table = st.columns([1, 1])
+    col_chart, col_table = st.columns([1.15, 1])
 
-    # Pie chart
-    with col_pie:
+    with col_chart:
         st.subheader("Portfolio Allocation")
         alloc = optimal["allocation"]
-        fig_pie = go.Figure(go.Pie(
-            labels=alloc["Fund"],
-            values=alloc["Weight (%)"],
-            hole=0.35,
-            textinfo="label+percent",
-            hoverinfo="label+value",
-        ))
-        fig_pie.update_layout(height=380, margin=dict(t=20, b=10))
-        st.plotly_chart(fig_pie, use_container_width=True)
+        bar_alloc = alloc.copy()
+        bar_alloc["Position"] = np.where(bar_alloc["Weight (%)"] >= 0, "Long", "Short")
+        bar_alloc["Display Fund"] = bar_alloc["Fund"].apply(_humanise_fund_label)
+        bar_alloc = bar_alloc.sort_values("Weight (%)", ascending=False).reset_index(drop=True)
+
+        fig_alloc = go.Figure()
+        for position, color in [("Long", "#f97316"), ("Short", "#2563eb")]:
+            position_alloc = bar_alloc[bar_alloc["Position"] == position]
+            if position_alloc.empty:
+                continue
+            fig_alloc.add_trace(go.Bar(
+                name=position,
+                x=position_alloc["Weight (%)"].tolist(),
+                y=position_alloc["Fund"].tolist(),
+                orientation="h",
+                marker_color=color,
+                text=position_alloc["Weight (%)"].map(lambda weight: f"{weight:.2f}%").tolist(),
+                textposition="outside",
+                customdata=position_alloc[["Display Fund", "Position", "Weight (%)"]].to_numpy(),
+                hovertemplate=(
+                    "%{customdata[0]}<br>"
+                    "Position: %{customdata[1]}<br>"
+                    "Weight: %{customdata[2]:.2f}%<extra></extra>"
+                ),
+            ))
+
+        max_abs_weight = max(float(bar_alloc["Weight (%)"].abs().max()), 1.0)
+        fig_alloc.update_layout(
+            barmode="relative",
+            height=max(380, 34 * len(bar_alloc) + 120),
+            margin=dict(t=20, b=30, l=10, r=50),
+            legend_title_text="Position",
+            yaxis=dict(
+                categoryorder="array",
+                categoryarray=bar_alloc["Fund"].tolist(),
+                tickmode="array",
+                tickvals=bar_alloc["Fund"].tolist(),
+                ticktext=bar_alloc["Display Fund"].tolist(),
+                autorange="reversed",
+                automargin=True,
+            ),
+            xaxis=dict(
+                title="Portfolio weight (%)",
+                range=[-max_abs_weight * 1.2, max_abs_weight * 1.2],
+                ticksuffix="%",
+                zeroline=True,
+                zerolinecolor="#d1d5db",
+                zerolinewidth=2,
+            ),
+        )
+        st.plotly_chart(fig_alloc, use_container_width=True)
 
     # Allocation table
     with col_table:
         st.subheader("Allocation Table")
-        display_alloc = alloc[["Fund", "Weight (%)"]].copy()
+        display_alloc = alloc[["Fund", "Weight (%)"]].rename(columns={"Fund": "Product"})
         display_alloc["Weight (%)"] = display_alloc["Weight (%)"].apply(lambda x: f"{x:.2f}%")
         st.dataframe(display_alloc, use_container_width=True, hide_index=True)
 
@@ -554,12 +616,39 @@ with tab4:
     st.subheader("Optimal Portfolio on the Efficient Frontier")
 
     @st.cache_data(show_spinner=False)
-    def _get_frontier4(mu_bytes, Sigma_bytes, n, allow_short):
+    def _get_frontier4(
+        mu_bytes,
+        Sigma_bytes,
+        n,
+        allow_short,
+        target_return_min,
+        target_return_max,
+    ):
         mu_a = np.frombuffer(mu_bytes).reshape(n)
         Sig_a = np.frombuffer(Sigma_bytes).reshape(n, n)
-        return compute_efficient_frontier(mu_a, Sig_a, allow_short)
+        return compute_efficient_frontier(
+            mu_a,
+            Sig_a,
+            allow_short,
+            target_return_min=target_return_min,
+            target_return_max=target_return_max,
+        )
 
-    frontier4 = _get_frontier4(mu_arr4.tobytes(), Sigma_arr4.tobytes(), n4, opt_short_toggle)
+    if opt_short_toggle:
+        frontier_base_min = float(np.min(mu_arr4))
+    else:
+        frontier_base_min = float(compute_gmvp(mu_arr4, Sigma_arr4, allow_short=False)["return"])
+    frontier_return_min = min(frontier_base_min, float(optimal["return"]))
+    frontier_return_max = max(float(np.max(mu_arr4)), float(optimal["return"]))
+    frontier_return_padding = max(frontier_return_max - frontier_return_min, 0.01) * 0.05
+    frontier4 = _get_frontier4(
+        mu_arr4.tobytes(),
+        Sigma_arr4.tobytes(),
+        n4,
+        opt_short_toggle,
+        frontier_return_min - frontier_return_padding,
+        frontier_return_max + frontier_return_padding,
+    )
     fund_stats4 = individual_fund_stats(mu4, Sigma4)
 
     fig_overlay = go.Figure()
