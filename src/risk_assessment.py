@@ -89,6 +89,44 @@ QUESTIONS: list[dict] = [
         ],
         "scores": [1, 2, 3, 4],
     },
+    {
+        "id": 8,
+        "text": (
+            "If your portfolio gained 25% in one year but then lost 20% the following year, "
+            "how would you feel?"
+        ),
+        "options": [
+            "Very stressed — I would exit the market immediately",
+            "Uncomfortable — I would reduce my risk exposure",
+            "Disappointed but patient — I would stay invested",
+            "Unbothered — volatility is part of long-term investing",
+        ],
+        "scores": [1, 2, 4, 6],
+    },
+    {
+        "id": 9,
+        "text": "What percentage of your total savings are you planning to invest?",
+        "options": [
+            "Less than 10%",
+            "10% – 25%",
+            "25% – 50%",
+            "50% – 75%",
+            "More than 75%",
+        ],
+        "scores": [5, 4, 3, 2, 1],
+    },
+    {
+        "id": 10,
+        "text": "Which statement best describes your attitude toward investment returns?",
+        "options": [
+            "I prefer guaranteed low returns over uncertain higher returns",
+            "I accept slightly higher risk for modestly better returns",
+            "I am willing to accept moderate swings for solid long-term growth",
+            "I seek high returns and accept the possibility of large losses",
+            "I want maximum possible returns regardless of risk",
+        ],
+        "scores": [1, 2, 3, 4, 5],
+    },
 ]
 
 # Score boundaries

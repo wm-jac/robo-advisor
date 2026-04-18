@@ -252,6 +252,38 @@ TRANSLATIONS: dict[str, dict] = {
                     "More than 6 months",
                 ],
             },
+            {
+                "text": (
+                    "If your portfolio gained 25% in one year but then lost 20% the following year, "
+                    "how would you feel?"
+                ),
+                "options": [
+                    "Very stressed — I would exit the market immediately",
+                    "Uncomfortable — I would reduce my risk exposure",
+                    "Disappointed but patient — I would stay invested",
+                    "Unbothered — volatility is part of long-term investing",
+                ],
+            },
+            {
+                "text": "What percentage of your total savings are you planning to invest?",
+                "options": [
+                    "Less than 10%",
+                    "10% – 25%",
+                    "25% – 50%",
+                    "50% – 75%",
+                    "More than 75%",
+                ],
+            },
+            {
+                "text": "Which statement best describes your attitude toward investment returns?",
+                "options": [
+                    "I prefer guaranteed low returns over uncertain higher returns",
+                    "I accept slightly higher risk for modestly better returns",
+                    "I am willing to accept moderate swings for solid long-term growth",
+                    "I seek high returns and accept the possibility of large losses",
+                    "I want maximum possible returns regardless of risk",
+                ],
+            },
         ],
     },
 
@@ -483,6 +515,35 @@ TRANSLATIONS: dict[str, dict] = {
                     "1 – 3个月",
                     "3 – 6个月",
                     "超过6个月",
+                ],
+            },
+            {
+                "text": "如果您的投资组合某年涨了25%，但次年跌了20%，您会有什么感受？",
+                "options": [
+                    "非常焦虑——我会立即退出市场",
+                    "不舒服——我会降低风险敞口",
+                    "失望但有耐心——我会继续持有",
+                    "无动于衷——波动是长期投资的一部分",
+                ],
+            },
+            {
+                "text": "您计划投入多少比例的总储蓄进行投资？",
+                "options": [
+                    "少于10%",
+                    "10% – 25%",
+                    "25% – 50%",
+                    "50% – 75%",
+                    "超过75%",
+                ],
+            },
+            {
+                "text": "以下哪种说法最能描述您对投资回报的态度？",
+                "options": [
+                    "我更偏好有保障的低回报，而非不确定的高回报",
+                    "我愿意承担略高的风险以换取稍好的回报",
+                    "我愿意接受适度波动以换取稳健的长期增长",
+                    "我追求高回报，接受较大亏损的可能性",
+                    "我希望尽可能获得最高回报，不计风险",
                 ],
             },
         ],
