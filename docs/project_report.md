@@ -165,6 +165,8 @@ The Frontier page compares two optimisation regimes: long-only portfolios and po
 
 ![Figure 3. Risk Profile page showing questionnaire progress, selectable answers, and the resulting investor profile.](screenshots/profile-page.png)
 
+![profile-page-result](/Users/brandonstark/Documents/NUS Msc Digital FinTech/AY 25-26 Sem 2/BMD5302/final_project/robo-advisor/docs/screenshots/profile-page-result.png)
+
 The Risk Profile page converts investor preferences into a quantitative `A` value. A lower `A` means the investor is more risk tolerant, while a higher `A` means the investor penalises variance more heavily.
 
 ### Optimal Portfolio Page

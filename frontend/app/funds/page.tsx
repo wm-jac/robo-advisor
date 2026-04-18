@@ -101,21 +101,40 @@ export default function FundsPage() {
             y: corr.funds,
             type: "heatmap",
             colorscale: [
-              [0.0, "#1d4ed8"],
-              [0.2, "#3b82f6"],
-              [0.4, "#93c5fd"],
-              [0.5, "#ffffff"],
-              [0.7, "#fca5a5"],
-              [0.85, "#b91c1c"],
-              [1.0, "#7f1d1d"],
+              [0.0, "#08306b"],
+              [0.25, "#2171b5"],
+              [0.5, "#f8fafc"],
+              [0.65, "#fdae61"],
+              [0.82, "#d73027"],
+              [1.0, "#67000d"],
             ],
             zmin: -1,
             zmax: 1,
-            text: corr.values.map((row) => row.map((v) => v?.toFixed(2) ?? "")) as any,
-            texttemplate: "%{text}",
-            textfont: { size: 10, color: "#e2e8f0" },
+            colorbar: {
+              tickcolor: "#64748b",
+              tickfont: { color: "#94a3b8" },
+            },
           } as Plotly.Data,
         ]
+      : [];
+
+  const corrAnnotations: Partial<Plotly.Annotations>[] =
+    corr
+      ? corr.values.flatMap((row, rowIndex) =>
+          row.map((value, colIndex) => {
+            const useLightText = value !== null && Math.abs(value) >= 0.55;
+            return {
+              x: corr.funds[colIndex],
+              y: corr.funds[rowIndex],
+              text: value?.toFixed(2) ?? "",
+              showarrow: false,
+              font: {
+                color: useLightText ? "#ffffff" : "#0f172a",
+                size: 10,
+              },
+            };
+          })
+        )
       : [];
 
   return (
@@ -354,6 +373,7 @@ export default function FundsPage() {
                 data={corrTraces}
                 layout={{
                   margin: { t: 10, b: 150, l: 175, r: 20 },
+                  annotations: corrAnnotations,
                   xaxis: {
                     automargin: true,
                     tickangle: 30,
