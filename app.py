@@ -4,6 +4,7 @@ Run with:  streamlit run app.py
 """
 
 import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -26,6 +27,8 @@ from src.risk_assessment import (
     get_score_range,
     score_to_A,
 )
+
+DATA_DIR = Path(__file__).resolve().parent / "data"
 
 # ──────────────────────────────────────────────────────────────
 # Page config
@@ -78,20 +81,32 @@ def _load_data(file_bytes_list: list[bytes], file_names: list[str], freq: str):
     return prices, returns, mu, Sigma
 
 
+def _default_data_files() -> list[Path]:
+    return sorted(path for path in DATA_DIR.glob("*.csv") if path.is_file())
+
+
 def get_data():
-    if not uploaded_files:
-        return None, None, None, None
-    file_bytes = [f.read() for f in uploaded_files]
-    for f in uploaded_files:
-        f.seek(0)
-    file_names = [f.name.replace(".csv", "") for f in uploaded_files]
+    if uploaded_files:
+        file_bytes = [f.read() for f in uploaded_files]
+        for f in uploaded_files:
+            f.seek(0)
+        file_names = [Path(f.name).stem for f in uploaded_files]
+        source = "uploaded data"
+    else:
+        data_files = _default_data_files()
+        if not data_files:
+            return None, None, None, None
+        file_bytes = [path.read_bytes() for path in data_files]
+        file_names = [path.stem for path in data_files]
+        source = f"default CSVs in {DATA_DIR}"
+
     try:
         prices, returns, mu, Sigma = _load_data(
             file_bytes, file_names, freq
         )
         return prices, returns, mu, Sigma
     except Exception as e:
-        st.error(f"Error loading data: {e}")
+        st.error(f"Error loading {source}: {e}")
         return None, None, None, None
 
 
@@ -109,27 +124,37 @@ with tab1:
     st.header("Fund Data Overview")
 
     if not uploaded_files:
-        st.info(
-            "Upload 10 fund price CSVs from **FSMOne Fund Selector** using the sidebar "
-            "to get started. Each CSV should contain Date and Price columns."
-        )
-        st.markdown(
-            """
-            **How to download from FSMOne:**
-            1. Go to [FSMOne Fund Selector](https://secure.fundsupermart.com/fsm/funds/fund-selector)
-            2. Search for and select a fund
-            3. Go to the **Price** tab and download historical data as CSV
-            4. Repeat for 10 different funds
-            """
-        )
-        st.stop()
+        default_files = _default_data_files()
+        if default_files:
+            st.info(
+                f"No uploaded files detected. Using **{len(default_files)} CSV files** "
+                "from the local `data/` directory. Upload files in the sidebar to "
+                "override this default dataset."
+            )
+        else:
+            st.info(
+                "Upload 10 fund price CSVs from **FSMOne Fund Selector** using the sidebar "
+                "to get started, or place CSV files in the local `data/` directory. "
+                "Each CSV should contain Date and Price columns."
+            )
+            st.markdown(
+                """
+                **How to download from FSMOne:**
+                1. Go to [FSMOne Fund Selector](https://secure.fundsupermart.com/fsm/funds/fund-selector)
+                2. Search for and select a fund
+                3. Go to the **Price** tab and download historical data as CSV
+                4. Repeat for 10 different funds
+                """
+            )
+            st.stop()
 
     prices, returns, mu, Sigma = get_data()
     if prices is None:
         st.stop()
 
+    data_source = "uploaded files" if uploaded_files else "`data/` directory"
     st.success(
-        f"Loaded **{len(prices.columns)} funds** | "
+        f"Loaded **{len(prices.columns)} funds** from {data_source} | "
         f"{prices.index[0].date()} → {prices.index[-1].date()} | "
         f"{len(prices)} observations"
     )
@@ -190,8 +215,10 @@ with tab2:
 
     prices2, returns2, mu2, Sigma2 = get_data()
     if prices2 is None:
-        st.info("Upload fund CSVs in the sidebar to continue.")
+        st.info("Upload fund CSVs in the sidebar or place at least two CSV files in `data/` to continue.")
         st.stop()
+    if not uploaded_files:
+        st.caption("Using the default fund CSVs from the local `data/` directory.")
 
     mu_arr = mu2.values
     Sigma_arr = Sigma2.values
@@ -432,7 +459,7 @@ with tab4:
 
     prices4, returns4, mu4, Sigma4 = get_data()
     if prices4 is None:
-        st.info("Upload fund CSVs in the sidebar to continue.")
+        st.info("Upload fund CSVs in the sidebar or place at least two CSV files in `data/` to continue.")
         st.stop()
 
     if "A" not in st.session_state:
