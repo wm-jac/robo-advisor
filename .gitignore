@@ -4,3 +4,5 @@ __pycache__/
 .DS_Store
 .streamlit/
 *.egg-info/
+frontend/.next/
+frontend/node_modules/

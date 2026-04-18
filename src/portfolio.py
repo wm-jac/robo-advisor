@@ -68,7 +68,10 @@ def compute_efficient_frontier(
     """
     Trace the efficient frontier by sweeping target returns and minimising variance.
 
-    For allow_short=True : sweeps from min(mu) to max(mu) — returns full parabola
+    For allow_short=True : sweeps across an extended return band around the GMVP.
+        With short sales and only the budget constraint sum(w)=1, portfolios can
+        achieve returns outside the individual-asset return range, so using only
+        min(mu) to max(mu) truncates the Markowitz parabola.
     For allow_short=False: sweeps from GMVP return to max(mu) — returns efficient branch only
 
     Returns DataFrame with columns: return, volatility, weights
@@ -81,8 +84,20 @@ def compute_efficient_frontier(
     r_max = float(np.max(mu))
 
     if allow_short:
-        # Include the lower (inefficient) branch for the full parabola
-        r_min = float(np.min(mu))
+        # With short selling, the feasible return set extends beyond the
+        # individual-asset return range. Sweep a wider band around the GMVP
+        # so the plotted frontier shows more of the parabola.
+        asset_min = float(np.min(mu))
+        asset_max = float(np.max(mu))
+        half_span = max(asset_max - gmvp["return"], gmvp["return"] - asset_min, 1e-4)
+        extension = 2.5 * half_span
+        r_min = float(gmvp["return"] - extension)
+        r_max = float(gmvp["return"] + extension)
+
+    if target_return_min is not None:
+        r_min = min(r_min, float(target_return_min))
+    if target_return_max is not None:
+        r_max = max(r_max, float(target_return_max))
 
     if target_return_min is not None:
         r_min = min(r_min, float(target_return_min))
