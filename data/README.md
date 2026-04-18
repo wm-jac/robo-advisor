@@ -2,9 +2,27 @@
 
 Place your 10 FSMOne fund price CSVs in this folder, or upload them directly via the app sidebar.
 
+## Download from FSMOne
+
+Use the downloader script to fetch app-compatible CSVs into this folder:
+
+```bash
+python scripts/download_fsmone_funds.py
+```
+
+By default, it downloads the project basket for `2021-01-01` through `2025-12-31`.
+You can pass FSMOne fund codes or quoted product names:
+
+```bash
+python scripts/download_fsmone_funds.py FI3095 JPM048 --start-date 2021-01-01 --end-date 2025-12-31
+python scripts/download_fsmone_funds.py --identifier "Fidelity America A-SGD (hedged)"
+```
+
+Generated CSVs are ignored by Git via `data/*.csv`.
+
 ## How to download from FSMOne
 
-1. Go to https://secure.fundsupermart.com/fsm/funds/fund-selector
+1. Go to https://secure.fundsupermart.com/fsmone/tools/fund-selector
 2. Search for and open any fund
 3. Navigate to the **Price History** tab
 4. Set your desired date range (recommend 5+ years for a meaningful efficient frontier)
