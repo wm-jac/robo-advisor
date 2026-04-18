@@ -272,7 +272,14 @@ def optimal(body: OptimalRequest):
             names,
             rf=rf,
         )
-        sens_df = sensitivity_analysis(mu, Sigma, body.A, body.allow_short, names, rf=rf)
+        sens_df = sensitivity_analysis(
+            mu,
+            Sigma,
+            body.A,
+            body.allow_short,
+            names,
+            rf=rf,
+        )
 
         allocation = [
             {
