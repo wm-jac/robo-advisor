@@ -20,8 +20,18 @@ Create and activate a virtual environment:
 
 ```bash
 python3 -m venv .venv
+```
+
+**Mac/Linux:**
+```bash
 source .venv/bin/activate
 ```
+
+**Windows (Command Prompt):**
+```bat
+.venv\Scripts\activate
+```
+
 
 Install Python dependencies:
 
@@ -65,11 +75,18 @@ More data notes are in [data/README.md](data/README.md).
 
 Open Terminal 1:
 
+**Mac/Linux:**
 ```bash
-cd /path/to/robo-advisor
 source .venv/bin/activate
 python3 -m uvicorn backend.main:app --reload --port 8000
 ```
+
+**Windows (Command Prompt):**
+```bat
+.venv\Scripts\activate
+python -m uvicorn backend.main:app --reload --port 8000
+```
+
 
 The API will run at:
 
@@ -82,7 +99,7 @@ http://127.0.0.1:8000
 Open Terminal 2:
 
 ```bash
-cd /path/to/robo-advisor/frontend
+cd frontend
 npm run preview
 ```
 
@@ -120,15 +137,22 @@ http://localhost:3000
 
 Backend:
 
+**Mac/Linux:**
 ```bash
-cd /path/to/robo-advisor
 source .venv/bin/activate
 python3 -m uvicorn backend.main:app --reload --port 8000
 ```
 
+**Windows (Command Prompt):**
+```bat
+.venv\Scripts\activate
+python -m uvicorn backend.main:app --reload --port 8000
+```
+
+
 Frontend:
 
 ```bash
-cd /path/to/robo-advisor/frontend
+cd frontend
 npm run preview
 ```
